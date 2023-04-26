@@ -42,6 +42,8 @@ class PostProcessing:
                 r'DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};'
                 fr'DBQ={databaseRoot};'
                 )
+        self.isSuccessDeleteTable = False
+        self.isSuccessCreateTable = False
 
     def delete_table(self) -> None:
         PostProcessing.postLogger.info('Trying to delete an old table.')
@@ -54,6 +56,7 @@ class PostProcessing:
             PostProcessing.postLogger.error(f"An error occurred while deleting the table: {e}")
         else:
             PostProcessing.postLogger.info('--An old table has been successfully deleted.--')
+            self.isSuccessDeleteTable = True
     
     def create_table(self) -> None:
         PostProcessing.postLogger.info('Trying to create a new table.')
@@ -70,30 +73,33 @@ class PostProcessing:
                                             [Сервер] VARCHAR(200),
                                             [Обоснование] VARCHAR(200))'''
         try:
-            with pyodbc.connect(self.connStr) as connection:
-                cursor = connection.cursor()
-                cursor.execute(createTableQuery)
-                cursor.commit()
+            if self.isSuccessDeleteTable:
+                with pyodbc.connect(self.connStr) as connection:
+                    cursor = connection.cursor()
+                    cursor.execute(createTableQuery)
+                    cursor.commit()
         except Exception as e:
             PostProcessing.postLogger.error(f"An error occurred while creating the table: {e}")
         else:
             PostProcessing.postLogger.info('--An old table has been successfully created.--')
+            self.isSuccessCreateTable = True
     
     def insert_into_table(self, dataframe:pd.DataFrame) -> None:
         PostProcessing.postLogger.info('Trying to insert new data into new table.')
         try:
-            with pyodbc.connect(self.connStr) as connection:
-                cursor = connection.cursor()
-                for row in dataframe.itertuples(index=False):
-                    insertQuery = f'''INSERT INTO [Документация] ([Система], [Наименование],
-                                            [Шифр], [Разработчик],
-                                            [Вид], [Тип],
-                                            [Статус], [Ревизия], 
-                                            [Дополнения], [Срок],
-                                            [Сервер], [Обоснование]) 
-                                            VALUES ({",".join(f"'{x}'" for x in row)})'''
-                    cursor.execute(insertQuery)
-                cursor.commit()
+            if self.isSuccessDeleteTable and self.isSuccessCreateTable:
+                with pyodbc.connect(self.connStr) as connection:
+                    cursor = connection.cursor()
+                    for row in dataframe.itertuples(index=False):
+                        insertQuery = f'''INSERT INTO [Документация] ([Система], [Наименование],
+                                                [Шифр], [Разработчик],
+                                                [Вид], [Тип],
+                                                [Статус], [Ревизия], 
+                                                [Дополнения], [Срок],
+                                                [Сервер], [Обоснование]) 
+                                                VALUES ({",".join(f"'{x}'" for x in row)})'''
+                        cursor.execute(insertQuery)
+                    cursor.commit()
         except Exception as e:
             PostProcessing.postLogger.error(f"An error occurred while inserting the data: {e}")
         else:
